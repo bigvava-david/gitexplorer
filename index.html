@@ -252,6 +252,105 @@
     margin-top: 8px;
   }
   .token-hint .ok { color: #3fb950; }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 100;
+    padding: 32px 16px;
+    overflow-y: auto;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 720px;
+    padding: 24px;
+    position: relative;
+    color: var(--text);
+  }
+  .modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .modal-close:hover { background: var(--panel-2); color: var(--text); }
+  .modal h2 {
+    margin: 0 0 12px;
+    font-size: 20px;
+    word-break: break-word;
+    padding-right: 36px;
+  }
+  .modal h2 .repo-owner { color: var(--muted); font-weight: 400; }
+  .modal-desc {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+    margin: 0 0 16px;
+  }
+  .modal-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .modal-stats .stat { display: inline-flex; align-items: center; gap: 6px; }
+  .modal-section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .star-graph-frame {
+    background: #fff;
+    border-radius: 6px;
+    padding: 8px;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .star-graph-frame img { width: 100%; height: auto; display: block; }
+  .star-graph-frame .fallback {
+    color: #586069;
+    font-size: 13px;
+    text-align: center;
+    padding: 24px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .modal-actions a {
+    background: var(--accent-2);
+    color: var(--bg);
+    text-decoration: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .modal-actions a:hover { opacity: 0.9; }
 </style>
 </head>
 <body>
@@ -299,6 +398,13 @@
     Data from the <a href="https://docs.github.com/rest/search/search#search-repositories" target="_blank" rel="noopener">GitHub Search API</a>.
     Cached 30 min in your browser to respect rate limits.
   </footer>
+
+  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" id="modal-panel">
+      <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
 
 <script>
 (() => {
@@ -473,7 +579,7 @@
     }[c]));
   }
 
-  function renderCard(repo, rank) {
+  function renderCard(repo, rank, idx) {
     const lang = repo.language ? `
       <span class="stat"><span class="lang-dot"></span>${escapeHtml(repo.language)}</span>
     ` : '';
@@ -482,11 +588,11 @@
       : '<em style="color:#586069">No description.</em>';
     const [owner, name] = repo.full_name.split('/');
     return `
-      <div class="card">
+      <div class="card" data-idx="${idx}" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(repo.full_name)}">
         <div class="card-head">
           <span class="rank">#${rank}</span>
           <div class="repo-name">
-            <span class="repo-owner">${escapeHtml(owner)}/</span><a href="${repo.html_url}" target="_blank" rel="noopener">${escapeHtml(name)}</a>
+            <span class="repo-owner">${escapeHtml(owner)}/</span>${escapeHtml(name)}
           </div>
         </div>
         <div class="desc">${desc}</div>
@@ -505,16 +611,19 @@
     STATUS.style.display = html ? 'block' : 'none';
   }
 
+  let currentItems = [];
+
   async function load() {
     GRID.innerHTML = '';
     setStatus('<span class="spinner"></span>');
     try {
       const items = await fetchTop12(currentWindow, currentMode);
+      currentItems = items;
       if (!items.length) {
         setStatus('No results.', true);
         return;
       }
-      GRID.innerHTML = items.map((r, i) => renderCard(r, i + 1)).join('');
+      GRID.innerHTML = items.map((r, i) => renderCard(r, i + 1, i)).join('');
       setStatus('');
     } catch (err) {
       setStatus(`Error: ${escapeHtml(err.message)}`, true);
@@ -572,6 +681,125 @@
   TOKEN_CLEAR.addEventListener('click', () => {
     try { localStorage.removeItem(TOKEN_KEY); } catch {}
     refreshTokenHint();
+  });
+
+  // ---- Modal ----
+  const MODAL = document.getElementById('modal');
+  const MODAL_CONTENT = document.getElementById('modal-content');
+  const MODAL_CLOSE = document.getElementById('modal-close');
+
+  // Cache GitHub /repos/{full_name} responses so the same modal doesn't refetch.
+  const detailsCache = new Map();
+  let modalShowingFullName = null;
+
+  function fmtDate(s) {
+    if (!s) return '';
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+  }
+
+  function renderModalStats(repo) {
+    const lang = repo.language ? `<span class="stat"><span class="lang-dot"></span>${escapeHtml(repo.language)}</span>` : '';
+    const updated = repo.updated_at ? `<span class="stat">Updated ${fmtDate(repo.updated_at)}</span>` : '';
+    const issues = (typeof repo.open_issues_count === 'number')
+      ? `<span class="stat">${fmtNum(repo.open_issues_count)} open issues</span>` : '';
+    return `
+      <span class="stat">★ ${fmtNum(repo.stargazers_count)} stars</span>
+      <span class="stat">⑂ ${fmtNum(repo.forks_count)} forks</span>
+      ${lang}
+      ${issues}
+      ${updated}
+    `;
+  }
+
+  async function fetchRepoDetails(fullName) {
+    if (detailsCache.has(fullName)) return detailsCache.get(fullName);
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    const token = getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`https://api.github.com/repos/${fullName}`, { headers });
+    if (!res.ok) throw new Error(`GitHub ${res.status}`);
+    const json = await res.json();
+    detailsCache.set(fullName, json);
+    return json;
+  }
+
+  // For Trending-mode rows the search response is sparse (no updated_at, open_issues_count, etc.).
+  // Fire a single /repos/{full_name} fetch in the background and patch the stats row when it returns.
+  async function enrichModalIfNeeded(repo) {
+    const haveAll = (typeof repo.open_issues_count === 'number') && repo.updated_at;
+    if (haveAll) return;
+    try {
+      const details = await fetchRepoDetails(repo.full_name);
+      // Bail if the user closed the modal or moved to a different repo while we were fetching.
+      if (modalShowingFullName !== repo.full_name) return;
+      const merged = { ...repo, ...details };
+      const statsEl = document.getElementById('modal-stats');
+      if (statsEl) statsEl.innerHTML = renderModalStats(merged);
+    } catch {
+      // Silent: modal still works with whatever fields we already had.
+    }
+  }
+
+  function openModal(repo) {
+    modalShowingFullName = repo.full_name;
+    const desc = repo.description
+      ? escapeHtml(repo.description)
+      : '<em style="color:#586069">No description.</em>';
+    const [owner, name] = repo.full_name.split('/');
+    const starHistoryUrl = `https://api.star-history.com/svg?repos=${encodeURIComponent(repo.full_name)}&type=Date`;
+
+    MODAL_CONTENT.innerHTML = `
+      <h2><span class="repo-owner">${escapeHtml(owner)}/</span>${escapeHtml(name)}</h2>
+      <p class="modal-desc">${desc}</p>
+      <div class="modal-stats" id="modal-stats">${renderModalStats(repo)}</div>
+      <div class="modal-section-label">Star history</div>
+      <div class="star-graph-frame" id="star-graph-frame">
+        <img alt="Star history for ${escapeHtml(repo.full_name)}"
+             src="${starHistoryUrl}"
+             onerror="this.parentNode.innerHTML='<div class=\\'fallback\\'>Couldn\\'t load star history graph.</div>'" />
+      </div>
+      <div class="modal-actions">
+        <a href="${repo.html_url}" target="_blank" rel="noopener">View on GitHub →</a>
+      </div>
+    `;
+    MODAL.classList.add('open');
+    MODAL.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    // Lazy-fill missing fields (Trending mode). Doesn't block the modal opening.
+    enrichModalIfNeeded(repo);
+  }
+
+  function closeModal() {
+    MODAL.classList.remove('open');
+    MODAL.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    modalShowingFullName = null;
+    MODAL_CONTENT.innerHTML = ''; // stop the star-history image fetch if mid-flight
+  }
+
+  GRID.addEventListener('click', (e) => {
+    const card = e.target.closest('.card');
+    if (!card) return;
+    const idx = Number(card.dataset.idx);
+    if (Number.isFinite(idx) && currentItems[idx]) openModal(currentItems[idx]);
+  });
+
+  // Keyboard: Enter/Space activates focused card; Esc closes the modal.
+  GRID.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.card');
+    if (!card) return;
+    e.preventDefault();
+    const idx = Number(card.dataset.idx);
+    if (Number.isFinite(idx) && currentItems[idx]) openModal(currentItems[idx]);
+  });
+
+  MODAL_CLOSE.addEventListener('click', closeModal);
+  MODAL.addEventListener('click', (e) => { if (e.target === MODAL) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && MODAL.classList.contains('open')) closeModal();
   });
 
   // Initial render
