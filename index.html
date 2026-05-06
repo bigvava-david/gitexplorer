@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GitStarExplorer — Trending GitHub Repos</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1f2630;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #f0c674;
+    --accent-2: #58a6ff;
+    --danger: #f85149;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 32px 24px 16px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+  }
+  header h1 .star { color: var(--accent); }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+  .tab {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .tab:hover { background: var(--panel-2); }
+  .tab.active {
+    background: var(--accent-2);
+    color: #0d1117;
+    border-color: var(--accent-2);
+    font-weight: 600;
+  }
+  .tab.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .tab.disabled:hover { background: var(--panel); }
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px 24px 48px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .card:hover {
+    border-color: var(--accent-2);
+    transform: translateY(-2px);
+  }
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .rank {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--accent);
+    min-width: 28px;
+  }
+  .repo-name {
+    font-size: 16px;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .repo-name a {
+    color: var(--accent-2);
+    text-decoration: none;
+  }
+  .repo-name a:hover { text-decoration: underline; }
+  .repo-owner { color: var(--muted); font-weight: 400; }
+  .desc {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    align-items: center;
+  }
+  .meta .stat { display: inline-flex; align-items: center; gap: 4px; }
+  .lang-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+  .status {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--muted);
+  }
+  .status.error { color: var(--danger); }
+  .spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent-2);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 16px;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+  .caveat {
+    max-width: 800px;
+    margin: 0 auto 8px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    padding: 0 16px;
+  }
+  .mode-row {
+    display: flex;
+    justify-content: center;
+    padding: 0 16px 8px;
+  }
+  .mode-toggle {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    background: var(--panel);
+  }
+  .mode-btn {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .mode-btn.active {
+    background: var(--panel-2);
+    color: var(--text);
+  }
+  details.settings {
+    max-width: 600px;
+    margin: 16px auto 0;
+    padding: 0 16px;
+    text-align: left;
+  }
+  details.settings summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    list-style: none;
+  }
+  details.settings summary::-webkit-details-marker { display: none; }
+  details.settings[open] summary { color: var(--text); }
+  .token-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+  }
+  .token-row input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .token-row input:focus { outline: none; border-color: var(--accent-2); }
+  .token-row button {
+    background: var(--accent-2);
+    color: var(--bg);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .token-row button.secondary {
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .token-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .token-hint .ok { color: #3fb950; }
+</style>
+</head>
+<body>
+  <header>
+    <h1><span class="star">★</span> GitStarExplorer</h1>
+    <p>Top 12 trending GitHub repositories by time window</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" data-window="day">Day</button>
+    <button class="tab active" data-window="week">Week</button>
+    <button class="tab" data-window="month">Month</button>
+    <button class="tab" data-window="year">Year</button>
+  </div>
+
+  <div class="mode-row">
+    <div class="mode-toggle" role="group" aria-label="Trending mode">
+      <button class="mode-btn active" data-mode="created">New</button>
+      <button class="mode-btn" data-mode="pushed">Active</button>
+      <button class="mode-btn" data-mode="trending" title="Stars gained in period (via ossinsight.io)">Trending</button>
+    </div>
+  </div>
+
+  <p class="caveat" id="caveat"></p>
+
+  <main>
+    <div id="status" class="status"><span class="spinner"></span></div>
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <details class="settings">
+    <summary>Settings — add a GitHub token to raise rate limits</summary>
+    <div class="token-row">
+      <input id="token-input" type="password" placeholder="ghp_… (optional, stored only in your browser)" autocomplete="off" />
+      <button id="token-save">Save</button>
+      <button id="token-clear" class="secondary">Clear</button>
+    </div>
+    <div class="token-hint" id="token-hint">
+      Unauthenticated: 60 requests/hour. With a token: 5,000/hour. Create a token with <em>no scopes</em> at
+      <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a>.
+    </div>
+  </details>
+
+  <footer>
+    Data from the <a href="https://docs.github.com/rest/search/search#search-repositories" target="_blank" rel="noopener">GitHub Search API</a>.
+    Cached 30 min in your browser to respect rate limits.
+  </footer>
+
+<script>
+(() => {
+  const TABS = document.querySelectorAll('.tab');
+  const MODE_BTNS = document.querySelectorAll('.mode-btn');
+  const GRID = document.getElementById('grid');
+  const STATUS = document.getElementById('status');
+  const CAVEAT = document.getElementById('caveat');
+  const TOKEN_INPUT = document.getElementById('token-input');
+  const TOKEN_SAVE = document.getElementById('token-save');
+  const TOKEN_CLEAR = document.getElementById('token-clear');
+  const TOKEN_HINT = document.getElementById('token-hint');
+  const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  const CACHE_PREFIX = 'gse_v2_'; // v2: cache key now includes mode
+  const TOKEN_KEY = 'gse_token';
+
+  // Map window -> days ago
+  const WINDOWS = {
+    day: 1,
+    week: 7,
+    month: 30,
+    year: 365,
+  };
+
+  // Trending mode (OSSInsight): periods supported by api.ossinsight.io
+  const OSSINSIGHT_PERIOD = {
+    day: 'past_24_hours',
+    week: 'past_week',
+    month: 'past_month',
+    // year: not supported by OSSInsight trends endpoint
+  };
+
+  let currentWindow = 'week';
+  let currentMode = 'created'; // 'created' | 'pushed' | 'trending'
+
+  function isoDateNDaysAgo(n) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  }
+
+  function buildGithubUrl(windowKey, mode) {
+    const since = isoDateNDaysAgo(WINDOWS[windowKey]);
+    const q = `${mode}:>${since}`;
+    const params = new URLSearchParams({
+      q,
+      sort: 'stars',
+      order: 'desc',
+      per_page: '12',
+    });
+    return `https://api.github.com/search/repositories?${params}`;
+  }
+
+  function buildOssinsightUrl(windowKey) {
+    const period = OSSINSIGHT_PERIOD[windowKey];
+    const params = new URLSearchParams({ period, language: 'All' });
+    return `https://api.ossinsight.io/v1/trends/repos/?${params}`;
+  }
+
+  // OSSInsight returns { data: { rows: [{ repo_name, stars, forks, primary_language, description, ... }] } }
+  // Map each row into the same shape renderCard expects.
+  function adaptOssinsightRow(row) {
+    const fullName = row.repo_name || row.full_name || '';
+    return {
+      full_name: fullName,
+      html_url: `https://github.com/${fullName}`,
+      description: row.description || '',
+      stargazers_count: Number(row.stars ?? row.total_stars ?? 0),
+      forks_count: Number(row.forks ?? row.total_forks ?? 0),
+      language: row.primary_language || row.language || '',
+    };
+  }
+
+  function updateCaveat() {
+    if (currentMode === 'created') {
+      CAVEAT.innerHTML = 'Showing repos <em>created</em> in the selected window, ranked by total stars — i.e. what\'s new.';
+    } else if (currentMode === 'pushed') {
+      CAVEAT.innerHTML = 'Showing repos <em>recently pushed</em> in the selected window, ranked by total stars — i.e. what\'s active.';
+    } else {
+      CAVEAT.innerHTML = 'Showing repos by <em>stars gained</em> in the selected window — the closest to true "trending." Data via <a href="https://ossinsight.io" target="_blank" rel="noopener">ossinsight.io</a>. Year window isn\'t supported in this mode.';
+    }
+  }
+
+  function refreshYearTab() {
+    // OSSInsight doesn't expose a yearly trending window — disable Year when in trending mode.
+    TABS.forEach(t => {
+      if (t.dataset.window === 'year') {
+        t.classList.toggle('disabled', currentMode === 'trending');
+      }
+    });
+  }
+
+  function cacheKey(windowKey, mode) { return `${windowKey}_${mode}`; }
+
+  function getCache(key) {
+    try {
+      const raw = localStorage.getItem(CACHE_PREFIX + key);
+      if (!raw) return null;
+      const { at, data } = JSON.parse(raw);
+      if (Date.now() - at > CACHE_TTL_MS) return null;
+      return data;
+    } catch { return null; }
+  }
+
+  function setCache(key, data) {
+    try {
+      localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ at: Date.now(), data }));
+    } catch { /* quota exceeded; ignore */ }
+  }
+
+  function getToken() {
+    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+  }
+
+  async function fetchOssinsight(windowKey) {
+    const period = OSSINSIGHT_PERIOD[windowKey];
+    if (!period) {
+      throw new Error(`Trending mode doesn't support the "${windowKey}" window. Pick Day, Week, or Month.`);
+    }
+    const res = await fetch(buildOssinsightUrl(windowKey), {
+      headers: { 'Accept': 'application/json' },
+      // Note: do NOT send the GitHub token here — it's a different service.
+    });
+    if (!res.ok) {
+      throw new Error(`OSSInsight API ${res.status}. Try again in a moment.`);
+    }
+    const json = await res.json();
+    const rows = (json.data && json.data.rows) || json.rows || [];
+    return rows.slice(0, 12).map(adaptOssinsightRow);
+  }
+
+  async function fetchGithub(windowKey, mode) {
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    const token = getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(buildGithubUrl(windowKey, mode), { headers });
+    if (!res.ok) {
+      const reset = res.headers.get('x-ratelimit-reset');
+      let extra = '';
+      if ((res.status === 403 || res.status === 429) && reset) {
+        const waitS = Math.max(0, Number(reset) * 1000 - Date.now()) / 1000;
+        extra = ` Rate limit hit — try again in ~${Math.ceil(waitS / 60)} min` +
+          (token ? '.' : ', or add a token in Settings.');
+      } else if (res.status === 401) {
+        extra = ' Token rejected — check it in Settings.';
+      }
+      throw new Error(`GitHub API ${res.status}.${extra}`);
+    }
+    const json = await res.json();
+    return json.items || [];
+  }
+
+  async function fetchTop12(windowKey, mode) {
+    const key = cacheKey(windowKey, mode);
+    const cached = getCache(key);
+    if (cached) return cached;
+    const items = mode === 'trending'
+      ? await fetchOssinsight(windowKey)
+      : await fetchGithub(windowKey, mode);
+    setCache(key, items);
+    return items;
+  }
+
+  function fmtNum(n) {
+    if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
+    return String(n);
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function renderCard(repo, rank) {
+    const lang = repo.language ? `
+      <span class="stat"><span class="lang-dot"></span>${escapeHtml(repo.language)}</span>
+    ` : '';
+    const desc = repo.description
+      ? escapeHtml(repo.description)
+      : '<em style="color:#586069">No description.</em>';
+    const [owner, name] = repo.full_name.split('/');
+    return `
+      <div class="card">
+        <div class="card-head">
+          <span class="rank">#${rank}</span>
+          <div class="repo-name">
+            <span class="repo-owner">${escapeHtml(owner)}/</span><a href="${repo.html_url}" target="_blank" rel="noopener">${escapeHtml(name)}</a>
+          </div>
+        </div>
+        <div class="desc">${desc}</div>
+        <div class="meta">
+          <span class="stat">★ ${fmtNum(repo.stargazers_count)}</span>
+          <span class="stat">⑂ ${fmtNum(repo.forks_count)}</span>
+          ${lang}
+        </div>
+      </div>
+    `;
+  }
+
+  function setStatus(html, isError = false) {
+    STATUS.innerHTML = html;
+    STATUS.classList.toggle('error', isError);
+    STATUS.style.display = html ? 'block' : 'none';
+  }
+
+  async function load() {
+    GRID.innerHTML = '';
+    setStatus('<span class="spinner"></span>');
+    try {
+      const items = await fetchTop12(currentWindow, currentMode);
+      if (!items.length) {
+        setStatus('No results.', true);
+        return;
+      }
+      GRID.innerHTML = items.map((r, i) => renderCard(r, i + 1)).join('');
+      setStatus('');
+    } catch (err) {
+      setStatus(`Error: ${escapeHtml(err.message)}`, true);
+    }
+  }
+
+  function activateTab(windowKey) {
+    TABS.forEach(t => t.classList.toggle('active', t.dataset.window === windowKey));
+    currentWindow = windowKey;
+  }
+
+  TABS.forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.classList.contains('disabled')) return;
+      activateTab(tab.dataset.window);
+      load();
+    });
+  });
+
+  MODE_BTNS.forEach(btn => {
+    btn.addEventListener('click', () => {
+      MODE_BTNS.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      // Trending mode doesn't support Year — bounce off it before fetching.
+      if (currentMode === 'trending' && currentWindow === 'year') {
+        activateTab('month');
+      }
+      refreshYearTab();
+      updateCaveat();
+      load();
+    });
+  });
+
+  function refreshTokenHint() {
+    const token = getToken();
+    if (token) {
+      TOKEN_HINT.innerHTML = '<span class="ok">✓ Token saved.</span> Stored only in your browser. Click Clear to remove.';
+      TOKEN_INPUT.placeholder = '••• token saved •••';
+      TOKEN_INPUT.value = '';
+    } else {
+      TOKEN_HINT.innerHTML = 'Unauthenticated: 60 requests/hour. With a token: 5,000/hour. Create a token with <em>no scopes</em> at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a>.';
+      TOKEN_INPUT.placeholder = 'ghp_… (optional, stored only in your browser)';
+    }
+  }
+
+  TOKEN_SAVE.addEventListener('click', () => {
+    const v = TOKEN_INPUT.value.trim();
+    if (!v) return;
+    try { localStorage.setItem(TOKEN_KEY, v); } catch {}
+    refreshTokenHint();
+    load(); // re-fetch with new auth
+  });
+
+  TOKEN_CLEAR.addEventListener('click', () => {
+    try { localStorage.removeItem(TOKEN_KEY); } catch {}
+    refreshTokenHint();
+  });
+
+  // Initial render
+  updateCaveat();
+  refreshYearTab();
+  refreshTokenHint();
+  load();
+})();
+</script>
+</body>
+</html>
