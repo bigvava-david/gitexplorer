@@ -13,8 +13,9 @@ The mode toggle below the time tabs picks how "trending" is defined:
 - **New** — repos *created* in the window, ranked by total stars. Best for finding recent launches and brand-new projects.
 - **Active** — repos *recently pushed* (i.e. with new commits) in the window, ranked by total stars. Useful for finding established projects that are being actively shipped on right now.
 - **Trending** — repos by *stars gained* in the window. Backed by [ossinsight.io](https://ossinsight.io), which tracks star events over time. This is the closest to what most people mean by "trending."
+- **Sleeper** — established repos gaining stars fast (high velocity, but *not* newly created in the window). Combines OSSInsight trending data with GitHub "created in window" filtering.
 
-New and Active hit `api.github.com/search/repositories` directly. Trending hits `api.ossinsight.io/v1/trends/repos/`.
+New and Active hit `api.github.com/search/repositories` directly. Trending and Sleeper hit `api.ossinsight.io/v1/trends/repos/`.
 
 ## Time windows
 
