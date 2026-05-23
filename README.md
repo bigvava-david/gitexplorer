@@ -80,8 +80,10 @@ Vanilla JS, no framework. The entire app is one IIFE. Cards are rendered by stri
 - **"New" doesn't find sleeper hits.** A two-year-old repo that picked up 5,000 stars this week won't appear in New mode — it shows repos created in the window, not stars gained in the window. Use Trending mode for that question.
 - **"Day" window in New mode is often thin.** Very few brand-new repos accumulate enough stars in 24 hours to rank highly. The 12-result grid will sometimes show repos with single-digit stars on the Day/New view.
 - **Trending depends on a third party.** OSSInsight is stable and has been running for years, but if their service breaks, Trending mode breaks until it's fixed. New and Active are unaffected.
-- **No language filter yet.** Currently shows all languages. A language dropdown is the most obvious next addition.
-- **No URL state.** Filters aren't reflected in the URL, so a particular view isn't shareable or bookmarkable.
+- **Language filter** — dropdown for OSSInsight-supported languages (Trending/Sleeper) and GitHub `language:` search (New/Active). Optional pin in Settings.
+- **Shareable URLs** — `?window=week&mode=trending&lang=Rust` (and `?repo=owner/name` or `?r1=&r2=` for showdowns). Use **Copy link** / **Embed** in the toolbar.
+- **Compare showdown** — toggle Compare, pick two cards, open overlaid star-history chart.
+- **Star velocity on cards** — Trending/Sleeper show `+X this week` (stars gained) as the hero stat; total stars load in the background when available.
 
 ## Tech stack
 
