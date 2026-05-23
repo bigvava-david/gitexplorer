@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GitStarExplorer — Trending GitHub Repos</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1f2630;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #f0c674;
+    --accent-2: #58a6ff;
+    --danger: #f85149;
+    --sleeper: #d29922;
+    --velocity: #3fb950;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  body.embed header,
+  body.embed .settings,
+  body.embed footer .footer-extra { display: none !important; }
+  body.embed header.compact-header { display: block !important; padding: 12px; }
+  body.embed .toolbar-row .share-group { display: none; }
+  header {
+    padding: 32px 24px 16px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+  }
+  header h1 .star { color: var(--accent); }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .compact-header { display: none; }
+  .toolbar-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 16px 12px;
+  }
+  .toolbar-row button,
+  .toolbar-row .btn-link {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .toolbar-row button:hover { background: var(--panel-2); border-color: var(--accent-2); }
+  .toolbar-row button.active {
+    background: var(--panel-2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .toolbar-row button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .share-group { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+  .tab {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .tab:hover { background: var(--panel-2); }
+  .tab.active {
+    background: var(--accent-2);
+    color: #0d1117;
+    border-color: var(--accent-2);
+    font-weight: 600;
+  }
+  .tab.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .tab.disabled:hover { background: var(--panel); }
+  .lang-row {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 16px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .lang-row label {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .lang-row select {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    min-width: 140px;
+    cursor: pointer;
+  }
+  .lang-row select:focus { outline: none; border-color: var(--accent-2); }
+  .lang-pin {
+    font-size: 11px;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px 24px 48px;
+  }
+  body.embed main { padding-bottom: 24px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    position: relative;
+  }
+  .card:hover {
+    border-color: var(--accent-2);
+    transform: translateY(-2px);
+  }
+  .card.card-selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .card.compare-pick { cursor: pointer; }
+  .card-compare-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  body.compare-on .card-compare-check { display: flex; }
+  .card.card-selected .card-compare-check {
+    border-color: var(--accent);
+    background: rgba(240, 198, 116, 0.15);
+  }
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-right: 24px;
+  }
+  .rank {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--accent);
+    min-width: 28px;
+    transition: color 0.3s;
+  }
+  .rank.rank-up { color: var(--velocity); }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .badge-sleeper { background: rgba(210, 153, 34, 0.2); color: var(--sleeper); }
+  .badge-velocity-hot { background: rgba(248, 81, 73, 0.2); color: #ff7b72; }
+  .badge-velocity-warm { background: rgba(240, 198, 116, 0.2); color: var(--accent); }
+  .badge-velocity-mild { background: rgba(63, 185, 80, 0.15); color: var(--velocity); }
+  .repo-name {
+    font-size: 16px;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .repo-name a {
+    color: var(--accent-2);
+    text-decoration: none;
+  }
+  .repo-name a:hover { text-decoration: underline; }
+  .repo-owner { color: var(--muted); font-weight: 400; }
+  .desc {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    align-items: center;
+  }
+  .meta .stat { display: inline-flex; align-items: center; gap: 4px; }
+  .stat-velocity {
+    color: var(--velocity);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .stat-total-muted { opacity: 0.75; font-size: 11px; }
+  .sleeper-age { font-size: 11px; color: var(--sleeper); }
+  .lang-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+  .status {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--muted);
+  }
+  .status.error { color: var(--danger); }
+  .spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent-2);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 16px;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+  .caveat {
+    max-width: 800px;
+    margin: 0 auto 8px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    padding: 0 16px;
+  }
+  .mode-row {
+    display: flex;
+    justify-content: center;
+    padding: 0 16px 8px;
+  }
+  .mode-toggle {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    background: var(--panel);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .mode-btn {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .mode-btn.active {
+    background: var(--panel-2);
+    color: var(--text);
+  }
+  .mode-btn[data-mode="sleeper"].active { color: var(--sleeper); }
+  details.settings {
+    max-width: 600px;
+    margin: 16px auto 0;
+    padding: 0 16px;
+    text-align: left;
+  }
+  details.settings summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    list-style: none;
+  }
+  details.settings summary::-webkit-details-marker { display: none; }
+  details.settings[open] summary { color: var(--text); }
+  .token-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+  }
+  .token-row input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .token-row input:focus { outline: none; border-color: var(--accent-2); }
+  .token-row button {
+    background: var(--accent-2);
+    color: var(--bg);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .token-row button.secondary {
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .token-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .token-hint .ok { color: #3fb950; }
+  .compare-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 12px 24px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 50;
+    flex-wrap: wrap;
+  }
+  .compare-bar.visible { display: flex; }
+  .compare-bar span { font-size: 13px; color: var(--muted); }
+  .compare-bar button.primary {
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .compare-bar button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .toast {
+    position: fixed;
+    bottom: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 100;
+    padding: 32px 16px;
+    overflow-y: auto;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 720px;
+    padding: 24px;
+    position: relative;
+    color: var(--text);
+  }
+  .modal.modal-wide { max-width: 960px; }
+  .modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .modal-close:hover { background: var(--panel-2); color: var(--text); }
+  .modal h2 {
+    margin: 0 0 12px;
+    font-size: 20px;
+    word-break: break-word;
+    padding-right: 36px;
+  }
+  .modal h2 .repo-owner { color: var(--muted); font-weight: 400; }
+  .modal-desc {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+    margin: 0 0 16px;
+  }
+  .modal-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .modal-stats .stat { display: inline-flex; align-items: center; gap: 6px; }
+  .modal-stats .stat-velocity { color: var(--velocity); font-weight: 700; }
+  .modal-section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .star-graph-frame {
+    background: #fff;
+    border-radius: 6px;
+    padding: 8px;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .star-graph-frame img { width: 100%; height: auto; display: block; }
+  .star-graph-frame .fallback {
+    color: #586069;
+    font-size: 13px;
+    text-align: center;
+    padding: 24px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .modal-actions a {
+    background: var(--accent-2);
+    color: var(--bg);
+    text-decoration: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .modal-actions a:hover { opacity: 0.9; }
+  .showdown-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 640px) {
+    .showdown-grid { grid-template-columns: 1fr; }
+  }
+  .showdown-col h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    word-break: break-word;
+  }
+  .showdown-col .modal-stats { margin-bottom: 8px; font-size: 12px; gap: 8px; }
+  .showdown-vs {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--accent);
+    margin: 8px 0;
+  }
+  .velocity-caption {
+    font-size: 12px;
+    color: var(--velocity);
+    margin: -8px 0 12px;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1><span class="star">★</span> GitStarExplorer</h1>
+    <p>Top 12 trending GitHub repositories by time window</p>
+  </header>
+  <header class="compact-header">
+    <h1 style="font-size:18px;margin:0"><span class="star">★</span> GitStarExplorer</h1>
+  </header>
+
+  <div class="toolbar-row">
+    <div class="share-group">
+      <button type="button" id="btn-copy-link" title="Copy shareable URL">Copy link</button>
+      <button type="button" id="btn-copy-embed" title="Copy iframe embed code">Embed</button>
+      <button type="button" id="btn-refresh" title="Bypass cache and reload">Refresh</button>
+    </div>
+    <button type="button" id="btn-compare-toggle" title="Select two repos to compare">Compare</button>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" data-window="day">Day</button>
+    <button class="tab active" data-window="week">Week</button>
+    <button class="tab" data-window="month">Month</button>
+    <button class="tab" data-window="year">Year</button>
+  </div>
+
+  <div class="mode-row">
+    <div class="mode-toggle" role="group" aria-label="Trending mode">
+      <button class="mode-btn active" data-mode="created">New</button>
+      <button class="mode-btn" data-mode="pushed">Active</button>
+      <button class="mode-btn" data-mode="trending" title="Stars gained in period (via ossinsight.io)">Trending</button>
+      <button class="mode-btn" data-mode="sleeper" title="Established repos gaining stars fast">Sleeper</button>
+    </div>
+  </div>
+
+  <div class="lang-row">
+    <label for="lang-select">Language</label>
+    <select id="lang-select" aria-label="Filter by programming language"></select>
+    <label class="lang-pin"><input type="checkbox" id="lang-pin" /> Pin language</label>
+  </div>
+
+  <p class="caveat" id="caveat"></p>
+
+  <main>
+    <div id="status" class="status"><span class="spinner"></span></div>
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <div class="compare-bar" id="compare-bar">
+    <span id="compare-hint">Select 2 repos for a showdown</span>
+    <button type="button" class="primary" id="btn-showdown" disabled>Showdown</button>
+    <button type="button" id="btn-compare-cancel">Cancel</button>
+  </div>
+
+  <details class="settings">
+    <summary>Settings — add a GitHub token to raise rate limits</summary>
+    <div class="token-row">
+      <input id="token-input" type="password" placeholder="ghp_… (optional, stored only in your browser)" autocomplete="off" />
+      <button id="token-save">Save</button>
+      <button id="token-clear" class="secondary">Clear</button>
+    </div>
+    <div class="token-hint" id="token-hint">
+      Unauthenticated: 60 requests/hour. With a token: 5,000/hour. Create a token with <em>no scopes</em> at
+      <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a>.
+    </div>
+  </details>
+
+  <footer>
+    <span class="footer-extra">Data from <a href="https://docs.github.com/rest/search/search#search-repositories" target="_blank" rel="noopener">GitHub</a>,
+    <a href="https://ossinsight.io" target="_blank" rel="noopener">OSSInsight</a>, and
+    <a href="https://star-history.com" target="_blank" rel="noopener">star-history.com</a>.
+    Cached 30 min in your browser.</span>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" id="modal-panel">
+      <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const TABS = document.querySelectorAll('.tab');
+  const MODE_BTNS = document.querySelectorAll('.mode-btn');
+  const GRID = document.getElementById('grid');
+  const STATUS = document.getElementById('status');
+  const CAVEAT = document.getElementById('caveat');
+  const TOKEN_INPUT = document.getElementById('token-input');
+  const TOKEN_SAVE = document.getElementById('token-save');
+  const TOKEN_CLEAR = document.getElementById('token-clear');
+  const TOKEN_HINT = document.getElementById('token-hint');
+  const LANG_SELECT = document.getElementById('lang-select');
+  const LANG_PIN = document.getElementById('lang-pin');
+  const BTN_COPY_LINK = document.getElementById('btn-copy-link');
+  const BTN_COPY_EMBED = document.getElementById('btn-copy-embed');
+  const BTN_REFRESH = document.getElementById('btn-refresh');
+  const BTN_COMPARE_TOGGLE = document.getElementById('btn-compare-toggle');
+  const BTN_SHOWDOWN = document.getElementById('btn-showdown');
+  const BTN_COMPARE_CANCEL = document.getElementById('btn-compare-cancel');
+  const COMPARE_BAR = document.getElementById('compare-bar');
+  const COMPARE_HINT = document.getElementById('compare-hint');
+  const TOAST = document.getElementById('toast');
+
+  const CACHE_TTL_MS = 30 * 60 * 1000;
+  const CACHE_PREFIX = 'gse_v3_';
+  const TOKEN_KEY = 'gse_token';
+  const LANG_KEY = 'gse_lang';
+  const LANG_PIN_KEY = 'gse_lang_pin';
+
+  const LANGUAGES = [
+    'All', 'JavaScript', 'TypeScript', 'Python', 'Rust', 'Go', 'Java', 'C++', 'C#',
+    'Ruby', 'PHP', 'Swift', 'Kotlin', 'Dart', 'Shell', 'C', 'HTML', 'CSS', 'Elixir',
+    'Haskell', 'Scala', 'Lua', 'R', 'Objective-C', 'Perl', 'Assembly',
+  ];
+
+  const WINDOWS = { day: 1, week: 7, month: 30, year: 365 };
+
+  const OSSINSIGHT_PERIOD = {
+    day: 'past_24_hours',
+    week: 'past_week',
+    month: 'past_month',
+  };
+
+  const VALID_MODES = ['created', 'pushed', 'trending', 'sleeper'];
+  const VALID_WINDOWS = ['day', 'week', 'month', 'year'];
+  const OSSINSIGHT_MODES = ['trending', 'sleeper'];
+
+  let currentWindow = 'week';
+  let currentMode = 'created';
+  let currentLanguage = 'All';
+  let currentItems = [];
+  let compareOn = false;
+  let compareSelection = [];
+  let prevRanks = {};
+  let urlWriteTimer = null;
+  let skipUrlWrite = false;
+  const isEmbed = new URLSearchParams(location.search).get('embed') === '1';
+
+  if (isEmbed) document.body.classList.add('embed');
+
+  // ---- Language Galaxy ----
+  LANGUAGES.forEach(lang => {
+    const opt = document.createElement('option');
+    opt.value = lang;
+    opt.textContent = lang === 'All' ? 'All languages' : lang;
+    LANG_SELECT.appendChild(opt);
+  });
+
+  try {
+    if (localStorage.getItem(LANG_PIN_KEY) === '1') {
+      LANG_PIN.checked = true;
+      const pinned = localStorage.getItem(LANG_KEY);
+      if (pinned && LANGUAGES.includes(pinned)) currentLanguage = pinned;
+    }
+  } catch { /* ignore */ }
+
+  LANG_SELECT.value = currentLanguage;
+
+  function usesOssinsight(mode) {
+    return OSSINSIGHT_MODES.includes(mode);
+  }
+
+  function isoDateNDaysAgo(n) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function buildGithubUrl(windowKey, mode, limit = 12) {
+    const since = isoDateNDaysAgo(WINDOWS[windowKey]);
+    let q = `${mode}:>${since}`;
+    if (currentLanguage !== 'All') q += ` language:${currentLanguage}`;
+    const params = new URLSearchParams({
+      q,
+      sort: 'stars',
+      order: 'desc',
+      per_page: String(Math.min(100, limit)),
+    });
+    return `https://api.github.com/search/repositories?${params}`;
+  }
+
+  function buildOssinsightUrl(windowKey) {
+    const period = OSSINSIGHT_PERIOD[windowKey];
+    const params = new URLSearchParams({
+      period,
+      language: currentLanguage,
+    });
+    return `https://api.ossinsight.io/v1/trends/repos/?${params}`;
+  }
+
+  function adaptOssinsightRow(row) {
+    const fullName = row.repo_name || row.full_name || '';
+    const starsGained = Number(row.stars ?? row.stars_inc ?? 0);
+    return {
+      full_name: fullName,
+      html_url: `https://github.com/${fullName}`,
+      description: row.description || '',
+      stars_gained: starsGained,
+      stargazers_count: Number(row.total_stars ?? 0),
+      forks_count: Number(row.forks ?? row.total_forks ?? 0),
+      language: row.primary_language || row.language || '',
+    };
+  }
+
+  function cacheKey(windowKey, mode, lang) {
+    return `${windowKey}_${mode}_${lang || 'All'}`;
+  }
+
+  function getCache(key) {
+    try {
+      const raw = localStorage.getItem(CACHE_PREFIX + key);
+      if (!raw) return null;
+      const { at, data } = JSON.parse(raw);
+      if (Date.now() - at > CACHE_TTL_MS) return null;
+      return data;
+    } catch { return null; }
+  }
+
+  function setCache(key, data) {
+    try {
+      localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ at: Date.now(), data }));
+    } catch { /* quota */ }
+  }
+
+  function clearCacheForCurrent() {
+    try {
+      localStorage.removeItem(CACHE_PREFIX + cacheKey(currentWindow, currentMode, currentLanguage));
+    } catch { /* ignore */ }
+  }
+
+  function getToken() {
+    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+  }
+
+  // ---- Star Velocity HUD helpers ----
+  function windowLabel(windowKey) {
+    return { day: 'today', week: 'this week', month: 'this month', year: 'this year' }[windowKey] || windowKey;
+  }
+
+  function fmtDelta(n) {
+    if (!n || n <= 0) return '+0';
+    if (n >= 1000) return '+' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
+    return '+' + n;
+  }
+
+  function velocityTier(gained, windowKey) {
+    const days = WINDOWS[windowKey] || 7;
+    const perDay = gained / days;
+    if (perDay >= 1000) return 'hot';
+    if (perDay >= 300) return 'warm';
+    if (perDay >= 100) return 'mild';
+    return '';
+  }
+
+  function repoAgeLabel(createdAt) {
+    if (!createdAt) return '';
+    const created = new Date(createdAt);
+    if (Number.isNaN(created.getTime())) return '';
+    const years = (Date.now() - created.getTime()) / (365.25 * 24 * 3600 * 1000);
+    if (years >= 2) return `${Math.floor(years)} yr old`;
+    if (years >= 1) return '1 yr old';
+    const months = Math.floor(years * 12);
+    if (months >= 1) return `${months} mo old`;
+    return 'recent';
+  }
+
+  function showVelocityPrimary() {
+    return usesOssinsight(currentMode);
+  }
+
+  // ---- URL Time Capsules ----
+  function readStateFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const w = params.get('window');
+    const m = params.get('mode');
+    const lang = params.get('lang');
+    const repo = params.get('repo');
+    const r1 = params.get('r1');
+    const r2 = params.get('r2');
+
+    if (w && VALID_WINDOWS.includes(w)) currentWindow = w;
+    if (m && VALID_MODES.includes(m)) currentMode = m;
+    if (lang && LANGUAGES.includes(lang)) {
+      currentLanguage = lang;
+      LANG_SELECT.value = lang;
+    }
+
+    TABS.forEach(t => t.classList.toggle('active', t.dataset.window === currentWindow));
+    MODE_BTNS.forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === currentMode);
+    });
+
+    if (usesOssinsight(currentMode) && currentWindow === 'year') currentWindow = 'month';
+
+    return { repo, r1, r2 };
+  }
+
+  function buildShareUrl(extra = {}) {
+    const params = new URLSearchParams({
+      window: currentWindow,
+      mode: currentMode,
+      lang: currentLanguage,
+      ...extra,
+    });
+    const base = location.pathname || 'index.html';
+    return `${location.origin}${base}?${params}`;
+  }
+
+  function writeStateToUrl(extra = {}, clearDeepLinks = false) {
+    if (skipUrlWrite) return;
+    clearTimeout(urlWriteTimer);
+    urlWriteTimer = setTimeout(() => {
+      const params = new URLSearchParams({
+        window: currentWindow,
+        mode: currentMode,
+        lang: currentLanguage,
+      });
+      if (!clearDeepLinks) {
+        const cur = new URLSearchParams(location.search);
+        if (cur.get('repo') && extra.repo === undefined) params.set('repo', cur.get('repo'));
+        if (cur.get('r1') && extra.r1 === undefined) params.set('r1', cur.get('r1'));
+        if (cur.get('r2') && extra.r2 === undefined) params.set('r2', cur.get('r2'));
+      }
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v) params.set(k, v);
+        else params.delete(k);
+      });
+      if (isEmbed) params.set('embed', '1');
+      const next = `${location.pathname}?${params}`;
+      history.replaceState(null, '', next);
+      updateDocumentTitle();
+    }, 80);
+  }
+
+  function updateDocumentTitle() {
+    const langPart = currentLanguage !== 'All' ? ` · ${currentLanguage}` : '';
+    const modeNames = { created: 'New', pushed: 'Active', trending: 'Trending', sleeper: 'Sleeper' };
+    const top = currentItems[0];
+    const lead = top ? ` — #1 ${top.full_name}` : '';
+    document.title = `GitStarExplorer · ${currentWindow} · ${modeNames[currentMode] || currentMode}${langPart}${lead}`;
+  }
+
+  function showToast(msg) {
+    TOAST.textContent = msg;
+    TOAST.classList.add('show');
+    setTimeout(() => TOAST.classList.remove('show'), 2200);
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard');
+    } catch {
+      showToast('Copy failed — select manually');
+    }
+  }
+
+  // ---- Fetch layer ----
+  async function fetchOssinsightRows(windowKey, limit = 12) {
+    const period = OSSINSIGHT_PERIOD[windowKey];
+    if (!period) {
+      throw new Error(`This mode doesn't support the "${windowKey}" window. Pick Day, Week, or Month.`);
+    }
+    const res = await fetch(buildOssinsightUrl(windowKey), {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!res.ok) throw new Error(`OSSInsight API ${res.status}. Try again in a moment.`);
+    const json = await res.json();
+    const rows = (json.data && json.data.rows) || json.rows || [];
+    return rows.slice(0, limit).map(adaptOssinsightRow);
+  }
+
+  async function fetchGithub(windowKey, mode, limit = 12) {
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    const token = getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(buildGithubUrl(windowKey, mode, limit), { headers });
+    if (!res.ok) {
+      const reset = res.headers.get('x-ratelimit-reset');
+      let extra = '';
+      if ((res.status === 403 || res.status === 429) && reset) {
+        const waitS = Math.max(0, Number(reset) * 1000 - Date.now()) / 1000;
+        extra = ` Rate limit hit — try again in ~${Math.ceil(waitS / 60)} min` +
+          (token ? '.' : ', or add a token in Settings.');
+      } else if (res.status === 401) {
+        extra = ' Token rejected — check it in Settings.';
+      }
+      throw new Error(`GitHub API ${res.status}.${extra}`);
+    }
+    const json = await res.json();
+    return json.items || [];
+  }
+
+  async function fetchSleeper(windowKey) {
+    const key = cacheKey(windowKey, 'sleeper', currentLanguage);
+    const cached = getCache(key);
+    if (cached) return cached;
+
+    const [trending, newRepos] = await Promise.all([
+      fetchOssinsightRows(windowKey, 30),
+      fetchGithub(windowKey, 'created', 30),
+    ]);
+    const newNames = new Set(newRepos.map(r => (r.full_name || '').toLowerCase()));
+    const sinceMs = new Date(isoDateNDaysAgo(WINDOWS[windowKey])).getTime();
+
+    const sleepers = trending.filter(repo => {
+      const name = (repo.full_name || '').toLowerCase();
+      if (newNames.has(name)) return false;
+      if (repo.created_at) {
+        return new Date(repo.created_at).getTime() < sinceMs;
+      }
+      return true;
+    }).slice(0, 12);
+
+    setCache(key, sleepers);
+    return sleepers;
+  }
+
+  async function fetchTop12(windowKey, mode, bustCache = false) {
+    const key = cacheKey(windowKey, mode, currentLanguage);
+    if (!bustCache) {
+      const cached = getCache(key);
+      if (cached) return cached;
+    }
+    let items;
+    if (mode === 'trending') {
+      items = await fetchOssinsightRows(windowKey, 12);
+    } else if (mode === 'sleeper') {
+      items = await fetchSleeper(windowKey);
+    } else {
+      items = await fetchGithub(windowKey, mode, 12);
+    }
+    setCache(key, items);
+    return items;
+  }
+
+  async function enrichCardsWithTotals(items) {
+    if (!showVelocityPrimary()) return;
+    const need = items.filter(r => !r.stargazers_count && r.full_name);
+    await Promise.all(need.slice(0, 12).map(async repo => {
+      try {
+        const d = await fetchRepoDetails(repo.full_name);
+        repo.stargazers_count = d.stargazers_count;
+        if (!repo.created_at) repo.created_at = d.created_at;
+      } catch { /* silent */ }
+    }));
+  }
+
+  async function enrichSleepersWithAge(items) {
+    if (currentMode !== 'sleeper') return;
+    await Promise.all(items.map(async repo => {
+      if (repo.created_at) return;
+      try {
+        const d = await fetchRepoDetails(repo.full_name);
+        repo.created_at = d.created_at;
+        if (!repo.stargazers_count) repo.stargazers_count = d.stargazers_count;
+      } catch { /* silent */ }
+    }));
+  }
+
+  // ---- Rendering ----
+  function fmtNum(n) {
+    if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
+    return String(n);
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function renderBadges(repo) {
+    const badges = [];
+    if (currentMode === 'sleeper') {
+      badges.push('<span class="badge badge-sleeper">Sleeper</span>');
+    }
+    if (showVelocityPrimary() && repo.stars_gained) {
+      const tier = velocityTier(repo.stars_gained, currentWindow);
+      if (tier) badges.push(`<span class="badge badge-velocity-${tier}">${tier}</span>`);
+    }
+    return badges.length ? `<div class="badges">${badges.join('')}</div>` : '';
+  }
+
+  function renderCardStats(repo) {
+    const lang = repo.language ? `
+      <span class="stat"><span class="lang-dot"></span>${escapeHtml(repo.language)}</span>
+    ` : '';
+
+    if (showVelocityPrimary() && repo.stars_gained) {
+      const total = repo.stargazers_count
+        ? `<span class="stat stat-total-muted">★ ${fmtNum(repo.stargazers_count)} total</span>`
+        : '';
+      const age = currentMode === 'sleeper' && repo.created_at
+        ? `<span class="sleeper-age">${escapeHtml(repoAgeLabel(repo.created_at))}</span>`
+        : '';
+      return `
+        <span class="stat stat-velocity">${fmtDelta(repo.stars_gained)} ${windowLabel(currentWindow)}</span>
+        ${total}
+        <span class="stat">⑂ ${fmtNum(repo.forks_count)}</span>
+        ${lang}
+        ${age}
+      `;
+    }
+
+    return `
+      <span class="stat">★ ${fmtNum(repo.stargazers_count)}</span>
+      <span class="stat">⑂ ${fmtNum(repo.forks_count)}</span>
+      ${lang}
+    `;
+  }
+
+  function renderCard(repo, rank, idx, rankMovedUp = false) {
+    const desc = repo.description
+      ? escapeHtml(repo.description)
+      : '<em style="color:#586069">No description.</em>';
+    const [owner, name] = repo.full_name.split('/');
+    const selected = compareSelection.includes(idx);
+    const rankCls = rankMovedUp ? ' rank-up' : '';
+
+    return `
+      <div class="card compare-pick${selected ? ' card-selected' : ''}" data-idx="${idx}" role="button" tabindex="0"
+           aria-label="${compareOn ? 'Select for compare' : 'Open details for'} ${escapeHtml(repo.full_name)}">
+        <span class="card-compare-check" aria-hidden="true">${selected ? '✓' : ''}</span>
+        <div class="card-head">
+          <span class="rank${rankCls}">#${rank}</span>
+          <div class="repo-name">
+            <span class="repo-owner">${escapeHtml(owner)}/</span>${escapeHtml(name)}
+          </div>
+          ${renderBadges(repo)}
+        </div>
+        <div class="desc">${desc}</div>
+        <div class="meta">${renderCardStats(repo)}</div>
+      </div>
+    `;
+  }
+
+  function renderModalStats(repo) {
+    const lang = repo.language ? `<span class="stat"><span class="lang-dot"></span>${escapeHtml(repo.language)}</span>` : '';
+    const updated = repo.updated_at ? `<span class="stat">Updated ${fmtDate(repo.updated_at)}</span>` : '';
+    const issues = (typeof repo.open_issues_count === 'number')
+      ? `<span class="stat">${fmtNum(repo.open_issues_count)} open issues</span>` : '';
+
+    if (showVelocityPrimary() && repo.stars_gained) {
+      const total = repo.stargazers_count
+        ? `<span class="stat">★ ${fmtNum(repo.stargazers_count)} total</span>` : '';
+      return `
+        <span class="stat stat-velocity">${fmtDelta(repo.stars_gained)} stars ${windowLabel(currentWindow)}</span>
+        ${total}
+        <span class="stat">⑂ ${fmtNum(repo.forks_count)} forks</span>
+        ${lang}
+        ${issues}
+        ${updated}
+      `;
+    }
+
+    return `
+      <span class="stat">★ ${fmtNum(repo.stargazers_count)} stars</span>
+      <span class="stat">⑂ ${fmtNum(repo.forks_count)} forks</span>
+      ${lang}
+      ${issues}
+      ${updated}
+    `;
+  }
+
+  function setStatus(html, isError = false) {
+    STATUS.innerHTML = html;
+    STATUS.classList.toggle('error', isError);
+    STATUS.style.display = html ? 'block' : 'none';
+  }
+
+  function updateCaveat() {
+    const langNote = currentLanguage !== 'All'
+      ? ` Filtered to <strong>${escapeHtml(currentLanguage)}</strong>.`
+      : '';
+    if (currentMode === 'created') {
+      CAVEAT.innerHTML = 'Repos <em>created</em> in the window, ranked by total stars — what\'s new.' + langNote;
+    } else if (currentMode === 'pushed') {
+      CAVEAT.innerHTML = 'Repos <em>recently pushed</em> in the window, ranked by total stars — what\'s active.' + langNote;
+    } else if (currentMode === 'sleeper') {
+      CAVEAT.innerHTML = '<strong>Sleeper Radar:</strong> established repos with explosive star velocity — high stars gained, but <em>not</em> newly created in this window. Data via <a href="https://ossinsight.io" target="_blank" rel="noopener">ossinsight.io</a>.' + langNote;
+    } else {
+      CAVEAT.innerHTML = 'Repos by <em>stars gained</em> in the window — true trending. Data via <a href="https://ossinsight.io" target="_blank" rel="noopener">ossinsight.io</a>. Year isn\'t supported.' + langNote;
+    }
+  }
+
+  function refreshYearTab() {
+    const ossMode = usesOssinsight(currentMode);
+    TABS.forEach(t => {
+      if (t.dataset.window === 'year') t.classList.toggle('disabled', ossMode);
+    });
+  }
+
+  function renderGrid(items) {
+    const oldRanks = { ...prevRanks };
+    const newRanks = {};
+    GRID.innerHTML = items.map((r, i) => {
+      const rank = i + 1;
+      newRanks[r.full_name] = rank;
+      const movedUp = oldRanks[r.full_name] != null && oldRanks[r.full_name] > rank;
+      return renderCard(r, rank, i, movedUp);
+    }).join('');
+    prevRanks = newRanks;
+    updateCompareUI();
+  }
+
+  async function load(bustCache = false, clearDeepLinks = false) {
+    GRID.innerHTML = '';
+    setStatus('<span class="spinner"></span>');
+    try {
+      const items = await fetchTop12(currentWindow, currentMode, bustCache);
+      currentItems = items;
+      if (!items.length) {
+        const langMsg = currentLanguage !== 'All'
+          ? `Nothing hot in ${escapeHtml(currentLanguage)} for this view — try All languages or another window.`
+          : 'No results.';
+        setStatus(langMsg, true);
+        updateDocumentTitle();
+        return;
+      }
+      renderGrid(items);
+      setStatus('');
+      updateDocumentTitle();
+      writeStateToUrl({}, clearDeepLinks);
+      enrichCardsWithTotals(items).then(() => {
+        if (currentItems === items) renderGrid(items);
+      });
+      enrichSleepersWithAge(items).then(() => {
+        if (currentItems === items && currentMode === 'sleeper') renderGrid(items);
+      });
+    } catch (err) {
+      setStatus(`Error: ${escapeHtml(err.message)}`, true);
+      writeStateToUrl({}, clearDeepLinks);
+    }
+  }
+
+  function activateTab(windowKey) {
+    TABS.forEach(t => t.classList.toggle('active', t.dataset.window === windowKey));
+    currentWindow = windowKey;
+  }
+
+  function activateMode(mode) {
+    MODE_BTNS.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    currentMode = mode;
+    if (usesOssinsight(currentMode) && currentWindow === 'year') activateTab('month');
+    refreshYearTab();
+    updateCaveat();
+  }
+
+  // ---- Compare / Showdown ----
+  function setCompareMode(on) {
+    compareOn = on;
+    document.body.classList.toggle('compare-on', on);
+    BTN_COMPARE_TOGGLE.classList.toggle('active', on);
+    COMPARE_BAR.classList.toggle('visible', on);
+    if (!on) {
+      compareSelection = [];
+      GRID.querySelectorAll('.card-selected').forEach(c => c.classList.remove('card-selected'));
+    }
+    updateCompareUI();
+  }
+
+  function updateCompareUI() {
+    const n = compareSelection.length;
+    COMPARE_HINT.textContent = n === 0
+      ? 'Select 2 repos for a showdown'
+      : n === 1
+        ? `1 selected: ${currentItems[compareSelection[0]]?.full_name || ''}`
+        : `2 selected — ready!`;
+    BTN_SHOWDOWN.disabled = n !== 2;
+  }
+
+  function toggleCompareSelect(idx) {
+    const pos = compareSelection.indexOf(idx);
+    if (pos >= 0) {
+      compareSelection.splice(pos, 1);
+    } else if (compareSelection.length < 2) {
+      compareSelection.push(idx);
+    } else {
+      compareSelection.shift();
+      compareSelection.push(idx);
+    }
+    renderGrid(currentItems);
+  }
+
+  // ---- Modal ----
+  const MODAL = document.getElementById('modal');
+  const MODAL_PANEL = document.getElementById('modal-panel');
+  const MODAL_CONTENT = document.getElementById('modal-content');
+  const MODAL_CLOSE = document.getElementById('modal-close');
+  const detailsCache = new Map();
+  let modalShowingFullName = null;
+
+  function fmtDate(s) {
+    if (!s) return '';
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+  }
+
+  async function fetchRepoDetails(fullName) {
+    if (detailsCache.has(fullName)) return detailsCache.get(fullName);
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    const token = getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`https://api.github.com/repos/${fullName}`, { headers });
+    if (!res.ok) throw new Error(`GitHub ${res.status}`);
+    const json = await res.json();
+    detailsCache.set(fullName, json);
+    return json;
+  }
+
+  async function enrichModalIfNeeded(repo) {
+    const needVelocity = showVelocityPrimary() && !repo.stargazers_count;
+    const needMeta = (typeof repo.open_issues_count !== 'number') || !repo.updated_at || !repo.created_at;
+    if (!needVelocity && !needMeta) return;
+    try {
+      const details = await fetchRepoDetails(repo.full_name);
+      if (modalShowingFullName !== repo.full_name && !modalShowingFullName?.includes(',')) return;
+      const merged = { ...repo, ...details };
+      const statsEl = document.getElementById('modal-stats');
+      if (statsEl) statsEl.innerHTML = renderModalStats(merged);
+    } catch { /* silent */ }
+  }
+
+  function openModal(repo) {
+    modalShowingFullName = repo.full_name;
+    MODAL_PANEL.classList.remove('modal-wide');
+    const desc = repo.description
+      ? escapeHtml(repo.description)
+      : '<em style="color:#586069">No description.</em>';
+    const [owner, name] = repo.full_name.split('/');
+    const starHistoryUrl = `https://api.star-history.com/svg?repos=${encodeURIComponent(repo.full_name)}&type=Date`;
+    const velCaption = showVelocityPrimary() && repo.stars_gained
+      ? `<p class="velocity-caption">${fmtDelta(repo.stars_gained)} stars gained ${windowLabel(currentWindow)}</p>`
+      : '';
+
+    MODAL_CONTENT.innerHTML = `
+      <h2><span class="repo-owner">${escapeHtml(owner)}/</span>${escapeHtml(name)}</h2>
+      <p class="modal-desc">${desc}</p>
+      ${velCaption}
+      <div class="modal-stats" id="modal-stats">${renderModalStats(repo)}</div>
+      <div class="modal-section-label">Star history</div>
+      <div class="star-graph-frame">
+        <img alt="Star history for ${escapeHtml(repo.full_name)}"
+             src="${starHistoryUrl}"
+             onerror="this.parentNode.innerHTML='<div class=\\'fallback\\'>Couldn\\'t load star history graph.</div>'" />
+      </div>
+      <div class="modal-actions">
+        <a href="${repo.html_url}" target="_blank" rel="noopener">View on GitHub →</a>
+      </div>
+    `;
+    MODAL.classList.add('open');
+    MODAL.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    enrichModalIfNeeded(repo);
+    writeStateToUrl({ repo: repo.full_name });
+  }
+
+  function openCompareModal(repoA, repoB) {
+    modalShowingFullName = `${repoA.full_name},${repoB.full_name}`;
+    MODAL_PANEL.classList.add('modal-wide');
+    const repos = [repoA.full_name, repoB.full_name].sort();
+    const starHistoryUrl = `https://api.star-history.com/svg?repos=${repos.map(encodeURIComponent).join(',')}&type=Date`;
+    const ratio = repoA.stargazers_count && repoB.stargazers_count
+      ? (Math.max(repoA.stargazers_count, repoB.stargazers_count) /
+         Math.max(1, Math.min(repoA.stargazers_count, repoB.stargazers_count)))
+      : 0;
+    const vsNote = ratio >= 10
+      ? '<p class="velocity-caption">David vs Goliath — star counts differ by 10× or more.</p>'
+      : '';
+
+    function col(repo) {
+      const [o, n] = repo.full_name.split('/');
+      return `
+        <div class="showdown-col">
+          <h3><span class="repo-owner">${escapeHtml(o)}/</span>${escapeHtml(n)}</h3>
+          <div class="modal-stats">${renderModalStats(repo)}</div>
+          <a href="${repo.html_url}" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent-2)">GitHub →</a>
+        </div>
+      `;
+    }
+
+    MODAL_CONTENT.innerHTML = `
+      <h2>Repo Showdown</h2>
+      ${vsNote}
+      <div class="showdown-grid">${col(repoA)}${col(repoB)}</div>
+      <div class="modal-section-label">Overlaid star history</div>
+      <div class="star-graph-frame">
+        <img alt="Star history comparison"
+             src="${starHistoryUrl}"
+             onerror="this.parentNode.innerHTML='<div class=\\'fallback\\'>Couldn\\'t load comparison chart.</div>'" />
+      </div>
+      <div class="modal-actions">
+        <a href="#" id="copy-showdown-link">Copy showdown link</a>
+      </div>
+    `;
+    MODAL.classList.add('open');
+    MODAL.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    document.getElementById('copy-showdown-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      copyText(buildShareUrl({ r1: repoA.full_name, r2: repoB.full_name }));
+    });
+
+    Promise.all([repoA, repoB].map(r => enrichModalIfNeeded(r)));
+    writeStateToUrl({ r1: repoA.full_name, r2: repoB.full_name });
+  }
+
+  function closeModal() {
+    MODAL.classList.remove('open');
+    MODAL.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    modalShowingFullName = null;
+    MODAL_PANEL.classList.remove('modal-wide');
+    MODAL_CONTENT.innerHTML = '';
+    writeStateToUrl({ repo: null, r1: null, r2: null }, true);
+  }
+
+  function findRepoByFullName(name) {
+    const lower = name.toLowerCase();
+    return currentItems.find(r => r.full_name.toLowerCase() === lower);
+  }
+
+  async function openShowdownFromUrl(r1, r2) {
+    let a = findRepoByFullName(r1);
+    let b = findRepoByFullName(r2);
+    if (!a || !b) {
+      try {
+        const [da, db] = await Promise.all([
+          fetchRepoDetails(r1),
+          fetchRepoDetails(r2),
+        ]);
+        a = a || {
+          full_name: da.full_name,
+          html_url: da.html_url,
+          description: da.description,
+          stargazers_count: da.stargazers_count,
+          forks_count: da.forks_count,
+          language: da.language,
+          updated_at: da.updated_at,
+          open_issues_count: da.open_issues_count,
+        };
+        b = b || {
+          full_name: db.full_name,
+          html_url: db.html_url,
+          description: db.description,
+          stargazers_count: db.stargazers_count,
+          forks_count: db.forks_count,
+          language: db.language,
+          updated_at: db.updated_at,
+          open_issues_count: db.open_issues_count,
+        };
+      } catch { return; }
+    }
+    setCompareMode(false);
+    openCompareModal(a, b);
+  }
+
+  // ---- Events ----
+  TABS.forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.classList.contains('disabled')) return;
+      activateTab(tab.dataset.window);
+      closeModal();
+      load(false, true);
+    });
+  });
+
+  MODE_BTNS.forEach(btn => {
+    btn.addEventListener('click', () => {
+      activateMode(btn.dataset.mode);
+      closeModal();
+      load(false, true);
+    });
+  });
+
+  LANG_SELECT.addEventListener('change', () => {
+    currentLanguage = LANG_SELECT.value;
+    if (LANG_PIN.checked) {
+      try { localStorage.setItem(LANG_KEY, currentLanguage); } catch {}
+    }
+    updateCaveat();
+    closeModal();
+    load(false, true);
+  });
+
+  LANG_PIN.addEventListener('change', () => {
+    try {
+      if (LANG_PIN.checked) {
+        localStorage.setItem(LANG_PIN_KEY, '1');
+        localStorage.setItem(LANG_KEY, currentLanguage);
+      } else {
+        localStorage.removeItem(LANG_PIN_KEY);
+      }
+    } catch {}
+  });
+
+  BTN_COPY_LINK.addEventListener('click', () => copyText(buildShareUrl()));
+  BTN_COPY_EMBED.addEventListener('click', () => {
+    const src = buildShareUrl({ embed: '1' });
+    copyText(`<iframe src="${src}" width="100%" height="720" style="border:1px solid #30363d;border-radius:8px" title="GitStarExplorer"></iframe>`);
+  });
+  BTN_REFRESH.addEventListener('click', () => {
+    clearCacheForCurrent();
+    load(true);
+  });
+
+  BTN_COMPARE_TOGGLE.addEventListener('click', () => setCompareMode(!compareOn));
+  BTN_COMPARE_CANCEL.addEventListener('click', () => setCompareMode(false));
+  BTN_SHOWDOWN.addEventListener('click', () => {
+    if (compareSelection.length !== 2) return;
+    const a = currentItems[compareSelection[0]];
+    const b = currentItems[compareSelection[1]];
+    if (a && b) openCompareModal(a, b);
+  });
+
+  GRID.addEventListener('click', (e) => {
+    const card = e.target.closest('.card');
+    if (!card) return;
+    const idx = Number(card.dataset.idx);
+    if (!Number.isFinite(idx) || !currentItems[idx]) return;
+    if (compareOn) {
+      toggleCompareSelect(idx);
+      return;
+    }
+    openModal(currentItems[idx]);
+  });
+
+  GRID.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.card');
+    if (!card) return;
+    e.preventDefault();
+    const idx = Number(card.dataset.idx);
+    if (!Number.isFinite(idx) || !currentItems[idx]) return;
+    if (compareOn) toggleCompareSelect(idx);
+    else openModal(currentItems[idx]);
+  });
+
+  function refreshTokenHint() {
+    const token = getToken();
+    if (token) {
+      TOKEN_HINT.innerHTML = '<span class="ok">✓ Token saved.</span> Stored only in your browser. Click Clear to remove.';
+      TOKEN_INPUT.placeholder = '••• token saved •••';
+      TOKEN_INPUT.value = '';
+    } else {
+      TOKEN_HINT.innerHTML = 'Unauthenticated: 60 requests/hour. With a token: 5,000/hour. Create a token with <em>no scopes</em> at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a>.';
+      TOKEN_INPUT.placeholder = 'ghp_… (optional, stored only in your browser)';
+    }
+  }
+
+  TOKEN_SAVE.addEventListener('click', () => {
+    const v = TOKEN_INPUT.value.trim();
+    if (!v) return;
+    try { localStorage.setItem(TOKEN_KEY, v); } catch {}
+    refreshTokenHint();
+    load(true);
+  });
+
+  TOKEN_CLEAR.addEventListener('click', () => {
+    try { localStorage.removeItem(TOKEN_KEY); } catch {}
+    refreshTokenHint();
+  });
+
+  MODAL_CLOSE.addEventListener('click', closeModal);
+  MODAL.addEventListener('click', (e) => { if (e.target === MODAL) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (MODAL.classList.contains('open')) closeModal();
+      else if (compareOn) setCompareMode(false);
+    }
+  });
+
+  // ---- Init ----
+  skipUrlWrite = true;
+  const urlExtra = readStateFromUrl();
+  LANG_SELECT.value = currentLanguage;
+  refreshYearTab();
+  updateCaveat();
+  refreshTokenHint();
+  skipUrlWrite = false;
+
+  load(false, true).then(async () => {
+    if (urlExtra.repo) {
+      const repo = findRepoByFullName(urlExtra.repo);
+      if (repo) openModal(repo);
+      else {
+        try {
+          const d = await fetchRepoDetails(urlExtra.repo);
+          openModal({
+            full_name: d.full_name,
+            html_url: d.html_url,
+            description: d.description,
+            stargazers_count: d.stargazers_count,
+            forks_count: d.forks_count,
+            language: d.language,
+            updated_at: d.updated_at,
+            open_issues_count: d.open_issues_count,
+          });
+        } catch { /* ignore */ }
+      }
+    }
+    if (urlExtra.r1 && urlExtra.r2) openShowdownFromUrl(urlExtra.r1, urlExtra.r2);
+    writeStateToUrl(urlExtra.r1 && urlExtra.r2
+      ? { r1: urlExtra.r1, r2: urlExtra.r2 }
+      : urlExtra.repo ? { repo: urlExtra.repo } : {});
+  });
+})();
+</script>
+</body>
+</html>
