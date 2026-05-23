@@ -36,7 +36,8 @@ python3 -m http.server 8000
 
 # 3. GitHub Pages (live site)
 # https://bigvava-david.github.io/gitexplorer/
-# Deploys automatically on push to main via .github/workflows/pages.yml
+# One-time: Settings → Pages → Deploy from branch → gh-pages / (root)
+# Every push to main updates gh-pages via .github/workflows/pages.yml
 
 # 4. Other static hosts
 # Drop index.html into Netlify, Vercel, S3, etc.
