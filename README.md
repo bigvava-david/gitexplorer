@@ -13,9 +13,8 @@ The mode toggle below the time tabs picks how "trending" is defined:
 - **New** — repos *created* in the window, ranked by total stars. Best for finding recent launches and brand-new projects.
 - **Active** — repos *recently pushed* (i.e. with new commits) in the window, ranked by total stars. Useful for finding established projects that are being actively shipped on right now.
 - **Trending** — repos by *stars gained* in the window. Backed by [ossinsight.io](https://ossinsight.io), which tracks star events over time. This is the closest to what most people mean by "trending."
-- **Sleeper** — established repos gaining stars fast (high velocity, but *not* newly created in the window). Combines OSSInsight trending data with GitHub "created in window" filtering.
 
-New and Active hit `api.github.com/search/repositories` directly. Trending and Sleeper hit `api.ossinsight.io/v1/trends/repos/`.
+New and Active hit `api.github.com/search/repositories` directly. Trending hits `api.ossinsight.io/v1/trends/repos/`.
 
 ## Time windows
 
@@ -35,8 +34,12 @@ open index.html
 python3 -m http.server 8000
 # then visit http://localhost:8000
 
-# 3. Deploy to any static host
-# Drop index.html into GitHub Pages, Netlify, Vercel, S3, etc.
+# 3. GitHub Pages (live site)
+# https://bigvava-david.github.io/gitexplorer/
+# Deploys automatically on push to main via .github/workflows/pages.yml
+
+# 4. Other static hosts
+# Drop index.html into Netlify, Vercel, S3, etc.
 ```
 
 There's no build step. The whole app — HTML, CSS, JS — lives in `index.html`.
@@ -80,10 +83,8 @@ Vanilla JS, no framework. The entire app is one IIFE. Cards are rendered by stri
 - **"New" doesn't find sleeper hits.** A two-year-old repo that picked up 5,000 stars this week won't appear in New mode — it shows repos created in the window, not stars gained in the window. Use Trending mode for that question.
 - **"Day" window in New mode is often thin.** Very few brand-new repos accumulate enough stars in 24 hours to rank highly. The 12-result grid will sometimes show repos with single-digit stars on the Day/New view.
 - **Trending depends on a third party.** OSSInsight is stable and has been running for years, but if their service breaks, Trending mode breaks until it's fixed. New and Active are unaffected.
-- **Language filter** — dropdown for OSSInsight-supported languages (Trending/Sleeper) and GitHub `language:` search (New/Active). Optional pin in Settings.
-- **Shareable URLs** — `?window=week&mode=trending&lang=Rust` (and `?repo=owner/name` or `?r1=&r2=` for showdowns). Use **Copy link** / **Embed** in the toolbar.
-- **Compare showdown** — toggle Compare, pick two cards, open overlaid star-history chart.
-- **Star velocity on cards** — Trending/Sleeper show `+X this week` (stars gained) as the hero stat; total stars load in the background when available.
+- **No language filter yet.** Currently shows all languages. A language dropdown is the most obvious next addition.
+- **No URL state.** Filters aren't reflected in the URL, so a particular view isn't shareable or bookmarkable.
 
 ## Tech stack
 
